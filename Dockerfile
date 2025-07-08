@@ -2,6 +2,7 @@ FROM python:3.11
 
 WORKDIR /app
 COPY main.py .
+COPY constant.py .
 COPY requirements.txt .
 COPY .env .
 

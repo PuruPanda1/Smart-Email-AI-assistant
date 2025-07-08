@@ -5,7 +5,7 @@ from imap_tools import MailBox, AND
 from bs4 import BeautifulSoup
 import re
 from twilio.rest import Client
-
+from constant import MAX_LENGTH, REASONING_LLM_MODEL, SUMMARY_LLM_MODEL, LLM_TEMPERATURE, BLOCKED_KEYWORDS
 
 load_dotenv()
 
@@ -14,16 +14,8 @@ MAIL_PASSWORD = os.getenv("MAIL_PASSWORD")
 LM_STUDIO_URL = os.getenv("LM_STUDIO_URL")
 TWILIO_ACC_SID = os.getenv("TWILIO_ACC_SID")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
-MAX_LENGTH = 1000
-REASONING_LLM_MODEL = "deepseek-r1-distill-qwen-1.5b"
-SUMMARY_LLM_MODEL = "google/gemma-3-1b"
-LLM_TEMPERATURE = 0.0
 
-BLOCKED_KEYWORDS = [
-        "stock market", "sensex", "nifty", "stocks",
-        "equity", "shares", "market update", "trading"
-    ]
-
+print("Max length", MAX_LENGTH)
 MAIL_ACTIONS = []
 
 def retrieve_mails():
