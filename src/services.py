@@ -1,22 +1,19 @@
 import requests
+import re
 from dotenv import load_dotenv
 import os
+from constant import MAX_LENGTH, REASONING_LLM_MODEL, SUMMARY_LLM_MODEL, LLM_TEMPERATURE, BLOCKED_KEYWORDS, DEFAULT_SYSTEM_PROMPT
 from imap_tools import MailBox, AND
 from bs4 import BeautifulSoup
-import re
-from twilio.rest import Client
-from constant import MAX_LENGTH, REASONING_LLM_MODEL, SUMMARY_LLM_MODEL, LLM_TEMPERATURE, BLOCKED_KEYWORDS
-
+from utils import format_date
 load_dotenv()
+
 
 MAIL_USERNAME = os.getenv("MAIL_USERNAME")
 MAIL_PASSWORD = os.getenv("MAIL_PASSWORD")
 LM_STUDIO_URL = os.getenv("LM_STUDIO_URL")
 TWILIO_ACC_SID = os.getenv("TWILIO_ACC_SID")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
-
-print("Max length", MAX_LENGTH)
-MAIL_ACTIONS = []
 
 def retrieve_mails():
     with MailBox('imap.gmail.com').login(MAIL_USERNAME, MAIL_PASSWORD) as mailbox:
@@ -35,11 +32,11 @@ def retrieve_mails():
         
             classify_mail(msg_from, msg_subject, msg_content)
 
-def msg_llm(system_prompt, user_prompt, action):
-    LLM_MODEL = REASONING_LLM_MODEL
+def msg_llm(user_prompt, system_prompt=DEFAULT_SYSTEM_PROMPT, action="summary"):
+    LLM_MODEL = SUMMARY_LLM_MODEL
 
-    if action == "summary":
-        LLM_MODEL = SUMMARY_LLM_MODEL
+    if action == "reasoning":
+        LLM_MODEL = REASONING_LLM_MODEL
 
     headers = {
         "Content-Type": "application/json",
@@ -65,7 +62,7 @@ def msg_llm(system_prompt, user_prompt, action):
 
     result = response.json()
 
-    result = result["choices"][0]["message"]["content"].strip().lower()
+    result = result["choices"][0]["message"]["content"].strip()
 
     return result
 
@@ -120,11 +117,11 @@ def classify_mail(mail_from, mail_subject, mail_content):
     if any(keyword in combined_text for keyword in BLOCKED_KEYWORDS):
         classification = "spam"
     else:
-        classification = msg_llm(system_prompt, user_prompt, "reasoning").strip().split()[-1]
+        classification = msg_llm(user_prompt, system_prompt, "reasoning").strip().split()[-1]
 
     print("Mail: ", mail_subject, " --> ", classification)
 
-    if(classification == "important"):
+    if(classification.lower() == "important"):
         summarise_mail(mail_from, mail_subject, mail_content)
     else:
         print("Mailer: ", mail_from, " --> Spam")
@@ -145,7 +142,7 @@ def summarise_mail(mail_from, mail_subject, mail_content):
         "Return only the summary."
     )
 
-    summary = msg_llm(system_prompt, user_prompt, "summary")
+    summary = msg_llm(user_prompt, system_prompt, "summary")
 
     next_steps(mail_from, mail_subject, summary)
 
@@ -162,7 +159,7 @@ def next_steps(mail_from, mail_subject, summary):
         "Next Steps: <your next steps or 'No further actions required'>"
     )
 
-    actions = msg_llm(system_prompt, user_prompt, "reasoning")
+    actions = msg_llm(user_prompt, system_prompt, "reasoning")
 
     actions = re.sub(r"<think>.*?</think>", "", actions, flags=re.DOTALL).strip()
     actions = re.sub(r"next steps:", "", actions, flags=re.DOTALL).strip()
@@ -175,49 +172,29 @@ def next_steps(mail_from, mail_subject, summary):
         "actions": actions,
         "reply": "To be implemented!"
     })
+    
+    return MAIL_ACTIONS
+    # whatsapp_details(MAIL_ACTIONS, TWILIO_ACC_SID, TWILIO_AUTH_TOKEN)
 
-    whatsapp_details()
+def search_mail(keyword):
+    message_list = []
+    with MailBox('imap.gmail.com').login(MAIL_USERNAME, MAIL_PASSWORD) as mailbox:
+        mailbox.folder.set('Inbox')
+        for msg in mailbox.fetch(AND(subject=keyword), mark_seen=False, limit=5, reverse=True):
+            subject = msg.subject
+            sender = msg.from_
+            date = msg.date
 
-# send whatsapp msg
-def whatsapp_details():
-    print(MAIL_ACTIONS)
+            message = (
+                f"*Mail Sender:* {sender}\n"
+                f"*On:* {format_date(date)}\n"
+                f"*Subject:* {subject}\n\n"
+            )
 
-    message = MAIL_ACTIONS[0]
+            message_list.append(message)
 
-    send_whatsapp_msg(message)
+    response = f"Total Mail = {len(message_list)}\n"
 
-
-def send_whatsapp_msg(msg):
-    client = Client(TWILIO_ACC_SID, TWILIO_AUTH_TOKEN)
-
-    msg = format_whatsapp_message(msg)
-
-    try:
-        message = client.messages.create(
-        from_='whatsapp:+14155238886',
-        body=msg,
-        to='whatsapp:+919073893382'
-        )
-        print(message.sid)
-    except Exception as e:
-        print(e)
-
-
-def format_whatsapp_message(msg):
-    sender = msg["sender"]
-    subject = msg["subject"]
-    summary = msg["summary"]
-    actions = msg["actions"]
-
-    message = (
-        f"*Mail Sender:* {sender}\n"
-        f"*Subject:* {subject}\n\n"
-        f"*Summary:*\n{summary}\n\n"
-        f"*Actions:*\n{actions}"
-    )
-
-    return message
-
-if __name__ == "__main__":
-    retrieve_mails()
-    # send_whatsapp_msg("Nova there")
+    response += ''.join(message_list)
+    
+    return response
