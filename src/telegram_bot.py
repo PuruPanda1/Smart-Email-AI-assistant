@@ -8,14 +8,30 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id, text="I'm Bubbles, How can I help you today?")
 
+async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    help_message = (
+        "🐢 *Hi! I'm Bubbles, your cute turtle assistant!*\n\n"
+        "Here are the things I can do:\n\n"
+        "🔹 `/getmails` — Get the latest mails\n"
+        "🔹 `/smail <keyword>` — Search mails by keyword\n"
+        "🔹 `/talk` — Talk to Bubbles (LLM)\n"
+        "🔹 `/start` — Start the bot\n\n"
+        "_Try one of these commands!_"
+    )
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=help_message,
+        parse_mode='Markdown'
+    )
 
 async def get_mails(update: Update, context: ContextTypes.DEFAULT_TYPE):
     result = await retrieve_mails()
     await context.bot.send_message(chat_id=update.effective_chat.id, text=result)
-
 
 async def talk_to_llm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if context.args:
@@ -34,11 +50,3 @@ async def search_mails(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(
             chat_id=update.effective_chat.id, text="❌ Please provide a keyword! Usage: /smail <keyword>"
         )
-
-async def send_message_to_chat(TELEGRAM_ACCESS_TOKEN, CHAT_ID, text):
-    bot = Bot(token = TELEGRAM_ACCESS_TOKEN)
-    await bot.send_message(chat_id=CHAT_ID, text=text)
-
-def send_message(chat_id: int, text: str):
-    asyncio.run(send_message_to_chat(chat_id, text))
-

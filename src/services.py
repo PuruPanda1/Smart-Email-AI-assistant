@@ -15,6 +15,12 @@ LM_STUDIO_URL = os.getenv("LM_STUDIO_URL")
 TWILIO_ACC_SID = os.getenv("TWILIO_ACC_SID")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
 
+chat_history = [{
+                "role": "system",
+                "content": DEFAULT_SYSTEM_PROMPT
+            }]
+
+
 def retrieve_mails():
     with MailBox('imap.gmail.com').login(MAIL_USERNAME, MAIL_PASSWORD) as mailbox:
         mailbox.folder.set('Inbox')
@@ -38,22 +44,18 @@ def msg_llm(user_prompt, system_prompt=DEFAULT_SYSTEM_PROMPT, action="summary"):
     if action == "reasoning":
         LLM_MODEL = REASONING_LLM_MODEL
 
+    chat_history.append({
+                "role": "user",
+                "content": user_prompt
+            })
+
     headers = {
         "Content-Type": "application/json",
     }
 
     payload = {
         "model": LLM_MODEL,
-        "messages": [
-            {
-                "role": "system",
-                "content": system_prompt
-            },
-            {
-                "role": "user",
-                "content": user_prompt
-            }
-        ],
+        "messages": chat_history,
         "temperature": LLM_TEMPERATURE
     }
 
@@ -63,6 +65,13 @@ def msg_llm(user_prompt, system_prompt=DEFAULT_SYSTEM_PROMPT, action="summary"):
     result = response.json()
 
     result = result["choices"][0]["message"]["content"].strip()
+
+    
+    
+    chat_history.append({
+                "role": "assistant",
+                "content": result
+            })
 
     return result
 
